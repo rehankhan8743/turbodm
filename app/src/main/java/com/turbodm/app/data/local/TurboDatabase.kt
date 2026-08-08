@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 
 @Database(
     entities = [DownloadEntity::class, ChunkEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

@@ -20,6 +20,9 @@ class DownloadRepository @Inject constructor(
         listOf(DownloadStatus.QUEUED, DownloadStatus.ANALYZING, DownloadStatus.DOWNLOADING, DownloadStatus.PAUSED)
     ).map { it.map(DownloadEntity::toDomain) }
 
+    fun observeByStatuses(statuses: List<DownloadStatus>): Flow<List<Download>> =
+        dao.observeByStatuses(statuses).map { it.map(DownloadEntity::toDomain) }
+
     suspend fun get(id: Long): Download? = dao.getById(id)?.toDomain()
 
     suspend fun create(download: Download): Long =

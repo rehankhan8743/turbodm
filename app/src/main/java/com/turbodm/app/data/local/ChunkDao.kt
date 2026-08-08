@@ -13,8 +13,8 @@ interface ChunkDao {
     @Query("SELECT * FROM chunks WHERE downloadId = :downloadId ORDER BY `index` ASC")
     suspend fun forDownload(downloadId: Long): List<ChunkEntity>
 
-    @Query("UPDATE chunks SET downloadedBytes = :bytes WHERE id = :id")
-    suspend fun setDownloaded(id: Long, bytes: Long)
+    @Query("UPDATE chunks SET downloadedBytes = :bytes WHERE downloadId = :downloadId AND `index` = :index")
+    suspend fun setDownloaded(downloadId: Long, index: Int, bytes: Long)
 
     @Query("DELETE FROM chunks WHERE downloadId = :id")
     suspend fun deleteForDownload(id: Long)

@@ -32,7 +32,7 @@ class DownloadNotifier @Inject constructor(
         scope.launch {
             engine.events.collectLatest { evt ->
                 val d = repo.get(evt.id) ?: return@collectLatest
-                notify(buildProgress(d.fileName, evt.downloaded, evt.total, evt.id))
+                notify(buildProgress(d.fileName, evt.downloaded, evt.total, evt.bps, evt.id))
             }
         }
         scope.launch {
@@ -48,10 +48,14 @@ class DownloadNotifier @Inject constructor(
         nm.notify(SERVICE_NOTIFICATION_ID, it)
     }
 
-    private fun buildProgress(name: String, downloaded: Long, total: Long, id: Long): Notification {
+    private fun buildProgress(name: String, downloaded: Long, total: Long, bps: Long, id: Long): Notification {
         val max = if (total > 0) total.toInt() else 100
         val prog = if (total > 0) downloaded.toInt() else 0
-        return build("$name — ${formatBytes(downloaded)} / ${formatBytes(total)}", prog, max, id)
+        val speedSuffix = if (bps > 0) "  ·  ${formatRate(bps)}" else ""
+        return build(
+            "$name — ${formatBytes(downloaded)} / ${formatBytes(total)}$speedSuffix",
+            prog, max, id
+        )
     }
 
     private fun build(text: String, progress: Int = 0, max: Int = 0, id: Long? = null): Notification {
@@ -87,6 +91,12 @@ class DownloadNotifier @Inject constructor(
         b < 1024 * 1024 -> "%.1f KB".format(b / 1024.0)
         b < 1024L * 1024L * 1024L -> "%.1f MB".format(b / 1024.0 / 1024.0)
         else -> "%.2f GB".format(b / 1024.0 / 1024.0 / 1024.0)
+    }
+
+    private fun formatRate(bps: Long): String = when {
+        bps < 1024 -> "$bps B/s"
+        bps < 1024 * 1024 -> "%.0f KB/s".format(bps / 1024.0)
+        else -> "%.1f MB/s".format(bps / 1024.0 / 1024.0)
     }
 
     companion object {
