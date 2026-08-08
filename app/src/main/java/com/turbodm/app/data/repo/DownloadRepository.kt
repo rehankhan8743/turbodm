@@ -4,6 +4,7 @@ import com.turbodm.app.data.local.DownloadDao
 import com.turbodm.app.data.local.DownloadEntity
 import com.turbodm.app.domain.model.Download
 import com.turbodm.app.domain.model.DownloadStatus
+import com.turbodm.app.domain.model.PauseReason
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -29,10 +30,13 @@ class DownloadRepository @Inject constructor(
         dao.insert(DownloadEntity.fromDomain(download.copy(id = 0L)))
 
     suspend fun setStatus(id: Long, status: DownloadStatus) = dao.setStatus(id, status)
+    suspend fun setStatus(id: Long, status: DownloadStatus, reason: PauseReason) =
+        dao.setStatusWithReason(id, status, reason)
     suspend fun setDownloaded(id: Long, bytes: Long) = dao.setDownloadedBytes(id, bytes)
     suspend fun setMetadata(id: Long, total: Long, supportsRange: Boolean, status: DownloadStatus) =
         dao.setMetadata(id, total, supportsRange, status)
     suspend fun setError(id: Long, msg: String?, status: DownloadStatus) = dao.setError(id, msg, status)
     suspend fun markCompleted(id: Long) = dao.markCompleted(id)
     suspend fun delete(id: Long) = dao.deleteById(id)
+    suspend fun networkPausedIds(): List<Long> = dao.networkPausedIds()
 }

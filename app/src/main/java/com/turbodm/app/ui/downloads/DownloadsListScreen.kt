@@ -27,6 +27,7 @@ fun DownloadsListScreen(
     onSettings: () -> Unit
 ) {
     val downloads by vm.downloads.collectAsStateWithLifecycle()
+    val speeds by vm.speedsById.collectAsStateWithLifecycle()
     val filter = remember { mutableStateOf(Filter.All) }
     val visible = remember(downloads, filter.value) {
         when (filter.value) {
@@ -61,6 +62,7 @@ fun DownloadsListScreen(
                 items(visible, key = { it.id }) { d ->
                     DownloadRow(
                         d = d,
+                        bps = speeds[d.id] ?: 0L,
                         onPause = { vm.pause(d) },
                         onResume = { vm.resume(d) },
                         onCancel = { vm.cancel(d) },
@@ -96,6 +98,7 @@ private fun FilterChips(selected: MutableState<Filter>) {
 @Composable
 private fun DownloadRow(
     d: Download,
+    bps: Long,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onCancel: () -> Unit,
@@ -106,9 +109,12 @@ private fun DownloadRow(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(d.fileName, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                val progressText = if (d.totalBytes <= 0) ""
+                                   else "  ·  ${(d.progress * 100).toInt()}%"
+                val speedText = if (bps > 0L && d.status == DownloadStatus.DOWNLOADING)
+                    "  ·  ${humanRate(bps)}" else ""
                 Text(
-                    "${humanBytes(d.downloadedBytes)} / ${humanBytes(d.totalBytes)}" +
-                        if (d.totalBytes <= 0) "" else "  ·  ${(d.progress * 100).toInt()}%",
+                    "${humanBytes(d.downloadedBytes)} / ${humanBytes(d.totalBytes)}$progressText$speedText",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -155,6 +161,12 @@ private fun humanBytes(b: Long): String = when {
     b < 1024 * 1024 -> "%.1f KB".format(b / 1024.0)
     b < 1024L * 1024L * 1024L -> "%.1f MB".format(b / 1024.0 / 1024.0)
     else -> "%.2f GB".format(b / 1024.0 / 1024.0 / 1024.0)
+}
+
+private fun humanRate(bps: Long): String = when {
+    bps < 1024 -> "$bps B/s"
+    bps < 1024 * 1024 -> "%.0f KB/s".format(bps / 1024.0)
+    else -> "%.1f MB/s".format(bps / 1024.0 / 1024.0)
 }
 
 private val DownloadStatus.isActive: Boolean

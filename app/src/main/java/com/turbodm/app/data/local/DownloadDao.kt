@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.turbodm.app.domain.model.DownloadStatus
+import com.turbodm.app.domain.model.PauseReason
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -34,6 +35,9 @@ interface DownloadDao {
     @Query("UPDATE downloads SET status = :status, updatedAt = :now WHERE id = :id")
     suspend fun setStatus(id: Long, status: DownloadStatus, now: Long = System.currentTimeMillis())
 
+    @Query("UPDATE downloads SET status = :status, pauseReason = :reason, updatedAt = :now WHERE id = :id")
+    suspend fun setStatusWithReason(id: Long, status: DownloadStatus, reason: PauseReason, now: Long = System.currentTimeMillis())
+
     @Query("UPDATE downloads SET downloadedBytes = :bytes, updatedAt = :now WHERE id = :id")
     suspend fun setDownloadedBytes(id: Long, bytes: Long, now: Long = System.currentTimeMillis())
 
@@ -45,4 +49,7 @@ interface DownloadDao {
 
     @Query("UPDATE downloads SET status = 'COMPLETED', completedAt = :now, downloadedBytes = totalBytes, updatedAt = :now WHERE id = :id")
     suspend fun markCompleted(id: Long, now: Long = System.currentTimeMillis())
+
+    @Query("SELECT id FROM downloads WHERE status = 'PAUSED' AND pauseReason = 'NETWORK'")
+    suspend fun networkPausedIds(): List<Long>
 }

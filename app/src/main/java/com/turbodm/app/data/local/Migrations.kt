@@ -32,3 +32,14 @@ val MIGRATION_1_2: Migration = object : Migration(1, 2) {
         db.execSQL("UPDATE `downloads` SET `priority` = 0 WHERE `priority` IS NULL")
     }
 }
+
+/**
+ * v2 → v3:
+ *   - Adds `pauseReason` column to `downloads`. Default NONE so legacy rows
+ *     behave as "not paused" and the connectivity watcher doesn't auto-resume them.
+ */
+val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `downloads` ADD COLUMN `pauseReason` TEXT NOT NULL DEFAULT 'NONE'")
+    }
+}

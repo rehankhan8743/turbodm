@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.turbodm.app.data.local.ChunkDao
 import com.turbodm.app.data.local.DownloadDao
 import com.turbodm.app.data.local.MIGRATION_1_2
+import com.turbodm.app.data.local.MIGRATION_2_3
 import com.turbodm.app.data.local.TurboDatabase
 import dagger.Module
 import dagger.Provides
@@ -24,7 +25,7 @@ object AppModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): TurboDatabase =
         Room.databaseBuilder(context, TurboDatabase::class.java, TurboDatabase.NAME)
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
 
     @Provides fun provideDownloadDao(db: TurboDatabase): DownloadDao = db.downloadDao()

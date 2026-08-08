@@ -6,6 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.turbodm.app.domain.model.Download
 import com.turbodm.app.domain.model.DownloadStatus
+import com.turbodm.app.domain.model.PauseReason
 
 @Entity(
     tableName = "downloads",
@@ -30,19 +31,21 @@ data class DownloadEntity(
     val referer: String?,
     val userAgent: String?,
     val cookies: String?,
-    @ColumnInfo(defaultValue = "NULL") val sha256: String? = null
+    @ColumnInfo(defaultValue = "NULL") val sha256: String? = null,
+    @ColumnInfo(defaultValue = "NONE") val pauseReason: PauseReason = PauseReason.NONE
 ) {
     fun toDomain() = Download(
         id, url, fileName, mimeType, totalBytes, downloadedBytes, status, errorMessage,
         createdAt, updatedAt, completedAt, targetPath, supportsRange, segments, priority,
-        referer, userAgent, cookies, sha256
+        referer, userAgent, cookies, sha256, pauseReason
     )
 
     companion object {
         fun fromDomain(d: Download) = DownloadEntity(
             d.id, d.url, d.fileName, d.mimeType, d.totalBytes, d.downloadedBytes, d.status,
             d.errorMessage, d.createdAt, d.updatedAt, d.completedAt, d.targetPath,
-            d.supportsRange, d.segments, d.priority, d.referer, d.userAgent, d.cookies, d.sha256
+            d.supportsRange, d.segments, d.priority, d.referer, d.userAgent, d.cookies, d.sha256,
+            d.pauseReason
         )
     }
 }

@@ -22,7 +22,8 @@ data class Download(
     val referer: String? = null,
     val userAgent: String? = null,
     val cookies: String? = null,
-    val sha256: String? = null
+    val sha256: String? = null,
+    val pauseReason: PauseReason = PauseReason.NONE
 ) {
     val progress: Float
         get() = if (totalBytes <= 0) 0f
