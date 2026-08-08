@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TurboDM</string>
+    <string name="share_add_download">Add to TurboDM</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_resume">Resume</string>
+    <string name="service_preparing">Preparing downloads…</string>
+</resources>
