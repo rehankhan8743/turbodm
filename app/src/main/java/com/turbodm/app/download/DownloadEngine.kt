@@ -180,8 +180,10 @@ class DownloadEngine @Inject constructor(
             })
         }
         val completed = existing.filterValues { it.endByte > 0 && it.downloadedBytes >= (it.endByte - it.startByte + 1) }.keys
-        val partial = existing.filterValues { v -> v.downloadedBytes > 0L && v.downloadedBytes < (if (v.endByte > 0) v.endByte - v.startByte + 1 else Long.MAX_VALUE) }
-            .mapValues { it.value.downloadedBytes }
+        val partial = existing.filterValues { v ->
+            val chunkSize = if (v.endByte > 0) v.endByte - v.startByte + 1 else Long.MAX_VALUE
+            v.downloadedBytes in 1 until chunkSize
+        }.mapValues { it.value.downloadedBytes }
         return ChunkPlanner.reconcile(raw, completed, partial)
     }
 

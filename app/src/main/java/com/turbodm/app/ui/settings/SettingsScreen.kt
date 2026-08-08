@@ -35,7 +35,7 @@ fun SettingsScreen(
             SettingSection("Network") {
                 IntStepper("Max parallel downloads", s.maxParallel, 1..8) { vm.setMaxParallel(it) }
                 SwitchRow("Wi-Fi only", s.wifiOnly) { vm.setWifiOnly(it) }
-                LongStepper("Speed limit (KB/s, 0 = off)", s.speedLimitBps / 1024L, 0..100_000) {
+                LongStepper("Speed limit (KB/s, 0 = off)", s.speedLimitBps / 1024L, 0L..100_000L) {
                     vm.setSpeedLimitBps(it * 1024L)
                 }
                 IntStepper("Default segments", s.defaultSegments, 1..16) { vm.setSegments(it) }

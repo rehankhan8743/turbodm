@@ -32,7 +32,7 @@ class DownloadNotifier @Inject constructor(
         scope.launch {
             engine.events.collectLatest { evt ->
                 val d = repo.get(evt.id) ?: return@collectLatest
-                notify(buildProgress(d.fileName, evt.downloaded, evt.total, evt.bps, evt.id))
+                nm.notify(evt.id.toInt(), buildProgress(d.fileName, evt.downloaded, evt.total, evt.bps, evt.id))
             }
         }
         scope.launch {
@@ -79,7 +79,7 @@ class DownloadNotifier @Inject constructor(
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-        if (max > 0) builder.setProgress(max, progress, total == 0L)
+        if (max > 0) builder.setProgress(max, progress, false)
         if (cancelIntent != null) {
             builder.addAction(0, context.getString(R.string.action_cancel), cancelIntent)
         }
