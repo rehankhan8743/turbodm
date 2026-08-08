@@ -22,7 +22,8 @@ data class Download(
     val referer: String? = null,
     val userAgent: String? = null,
     val cookies: String? = null,
-    val sha256: String? = null,
+    val expectedSha256: String? = null,
+    val computedSha256: String? = null,
     val pauseReason: PauseReason = PauseReason.NONE
 ) {
     val progress: Float

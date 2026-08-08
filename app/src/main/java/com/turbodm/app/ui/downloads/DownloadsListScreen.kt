@@ -142,6 +142,18 @@ private fun DownloadRow(
             Spacer(Modifier.height(4.dp))
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         }
+        if (d.status == DownloadStatus.COMPLETED && d.computedSha256 != null) {
+            val verified = d.expectedSha256 != null &&
+                d.computedSha256.equals(d.expectedSha256, ignoreCase = true)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "SHA-256: ${d.computedSha256.take(16)}… " +
+                    (if (verified) "✓ verified" else "(no expected hash to check against)"),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (verified) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

@@ -50,6 +50,16 @@ fun AddDownloadScreen(
                 supportingText = { state.error?.let { Text(it) } },
                 modifier = Modifier.fillMaxWidth()
             )
+            OutlinedTextField(
+                value = state.expectedSha256,
+                onValueChange = vm::setExpectedSha256,
+                label = { Text("Expected SHA-256 (optional)") },
+                placeholder = { Text("64 hex chars — paste from the source site") },
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Text),
+                supportingText = { Text("Leave blank to skip verification.") },
+                modifier = Modifier.fillMaxWidth()
+            )
             Spacer(Modifier.height(8.dp))
             Button(
                 onClick = vm::submit,

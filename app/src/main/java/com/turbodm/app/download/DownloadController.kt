@@ -47,7 +47,8 @@ class DownloadController @Inject constructor(
         url: String,
         referer: String? = null,
         userAgent: String? = null,
-        cookies: String? = null
+        cookies: String? = null,
+        expectedSha256: String? = null
     ): Long {
         require(url.isNotBlank()) { "URL is required" }
         val snap = settings.flow.first()
@@ -72,7 +73,8 @@ class DownloadController @Inject constructor(
             priority = 0,
             referer = referer,
             userAgent = userAgent,
-            cookies = cookies
+            cookies = cookies,
+            expectedSha256 = expectedSha256
         )
         val id = repo.create(download)
         // QueueManager observes QUEUED rows and starts the engine. No direct engine.start here.

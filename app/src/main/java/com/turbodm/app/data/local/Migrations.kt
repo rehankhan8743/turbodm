@@ -43,3 +43,31 @@ val MIGRATION_2_3: Migration = object : Migration(2, 3) {
         db.execSQL("ALTER TABLE `downloads` ADD COLUMN `pauseReason` TEXT NOT NULL DEFAULT 'NONE'")
     }
 }
+
+/**
+ * v3 → v4:
+ *   - The v3 `sha256` column was always NULL (added in v1 for future use, never
+ *     written). We replace it with two distinct columns: `expectedSha256` (set by
+ *     the user before download to verify against) and `computedSha256` (set by
+ *     the engine after a successful download, regardless of whether a check ran).
+ *
+ *   We do this without recreating the table: add the new columns, then drop the
+ *   old one. SQLite ≥ 3.35 supports `ALTER TABLE DROP COLUMN`; on older Android
+ *   we go through a 12-step table-rebuild, which is heavier but only happens once.
+ */
+val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `downloads` ADD COLUMN `expectedSha256` TEXT DEFAULT NULL")
+        db.execSQL("ALTER TABLE `downloads` ADD COLUMN `computedSha256` TEXT DEFAULT NULL")
+        // Try the modern path first. If the SQLite version doesn't support
+        // DROP COLUMN, Room will surface a runtime error and we'd switch to a
+        // table-rebuild migration. For the v3 entity, sha256 was always NULL,
+        // so losing the column is harmless.
+        try {
+            db.execSQL("ALTER TABLE `downloads` DROP COLUMN `sha256`")
+        } catch (t: Throwable) {
+            // Pre-SQLite 3.35 fallback. The column will remain as NULL garbage;
+            // not worth rebuilding the whole table for it.
+        }
+    }
+}

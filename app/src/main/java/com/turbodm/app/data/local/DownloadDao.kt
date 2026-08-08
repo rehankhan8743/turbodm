@@ -52,4 +52,7 @@ interface DownloadDao {
 
     @Query("SELECT id FROM downloads WHERE status = 'PAUSED' AND pauseReason = 'NETWORK'")
     suspend fun networkPausedIds(): List<Long>
+
+    @Query("UPDATE downloads SET computedSha256 = :hash, updatedAt = :now WHERE id = :id")
+    suspend fun setComputedSha256(id: Long, hash: String, now: Long = System.currentTimeMillis())
 }

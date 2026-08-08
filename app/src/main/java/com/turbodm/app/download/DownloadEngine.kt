@@ -15,6 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -53,7 +54,8 @@ class DownloadEngine @Inject constructor(
     private val chunkDao: ChunkDao,
     private val settings: SettingsRepository,
     private val retryPolicy: RetryPolicy,
-    private val speedTracker: SpeedTracker
+    private val speedTracker: SpeedTracker,
+    private val hashVerifier: HashVerifier
 ) {
 
     data class ProgressEvent(
@@ -146,6 +148,24 @@ class DownloadEngine @Inject constructor(
                     return
                 }
             }
+
+            // Always compute the hash so the user can see it on completed rows.
+            // Only fail the download if the user supplied an expected hash and it
+            // didn't match.
+            val actual = withContext(Dispatchers.IO) { hashVerifier.sha256(target) }
+            repo.setComputedSha256(id, actual)
+            if (!d.expectedSha256.isNullOrBlank() &&
+                !hashVerifier.matches(actual, d.expectedSha256)
+            ) {
+                if (target.exists()) target.delete()
+                repo.setError(
+                    id,
+                    "SHA-256 mismatch (expected ${d.expectedSha256.take(12)}…, got ${actual.take(12)}…)",
+                    DownloadStatus.FAILED
+                )
+                return
+            }
+
             repo.markCompleted(id)
         } catch (ce: CancellationException) {
             throw ce

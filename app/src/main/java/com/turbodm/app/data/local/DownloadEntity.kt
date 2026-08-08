@@ -31,21 +31,22 @@ data class DownloadEntity(
     val referer: String?,
     val userAgent: String?,
     val cookies: String?,
-    @ColumnInfo(defaultValue = "NULL") val sha256: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val expectedSha256: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val computedSha256: String? = null,
     @ColumnInfo(defaultValue = "NONE") val pauseReason: PauseReason = PauseReason.NONE
 ) {
     fun toDomain() = Download(
         id, url, fileName, mimeType, totalBytes, downloadedBytes, status, errorMessage,
         createdAt, updatedAt, completedAt, targetPath, supportsRange, segments, priority,
-        referer, userAgent, cookies, sha256, pauseReason
+        referer, userAgent, cookies, expectedSha256, computedSha256, pauseReason
     )
 
     companion object {
         fun fromDomain(d: Download) = DownloadEntity(
             d.id, d.url, d.fileName, d.mimeType, d.totalBytes, d.downloadedBytes, d.status,
             d.errorMessage, d.createdAt, d.updatedAt, d.completedAt, d.targetPath,
-            d.supportsRange, d.segments, d.priority, d.referer, d.userAgent, d.cookies, d.sha256,
-            d.pauseReason
+            d.supportsRange, d.segments, d.priority, d.referer, d.userAgent, d.cookies,
+            d.expectedSha256, d.computedSha256, d.pauseReason
         )
     }
 }

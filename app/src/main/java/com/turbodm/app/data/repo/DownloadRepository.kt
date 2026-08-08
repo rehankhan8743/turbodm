@@ -39,4 +39,5 @@ class DownloadRepository @Inject constructor(
     suspend fun markCompleted(id: Long) = dao.markCompleted(id)
     suspend fun delete(id: Long) = dao.deleteById(id)
     suspend fun networkPausedIds(): List<Long> = dao.networkPausedIds()
+    suspend fun setComputedSha256(id: Long, hash: String) = dao.setComputedSha256(id, hash)
 }
