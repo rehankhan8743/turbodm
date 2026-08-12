@@ -39,6 +39,20 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+
+            <!-- Browser/file-manager handoff for any scheme TurboDM supports.
+                 Each <data android:scheme="…"> registers TurboDM as a handler. -->
+            <intent-filter android:label="@string/share_add_download">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:scheme="ftp" />
+                <data android:scheme="magnet" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+            </intent-filter>
         </activity>
 
         <service

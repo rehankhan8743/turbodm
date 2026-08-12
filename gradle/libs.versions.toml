@@ -18,6 +18,11 @@ datastore = "1.1.1"
 material3 = "1.3.0"
 splashscreen = "1.0.1"
 documentfile = "1.0.1"
+junit = "4.13.2"
+mockwebserver = "4.12.0"
+coroutinesTest = "1.9.0"
+commonsNet = "3.13.0"
+newpipeExtractor = "v0.26.4"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -54,8 +59,17 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
+okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "mockwebserver" }
 
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
+commons-net = { group = "commons-net", name = "commons-net", version.ref = "commonsNet" }
+# Published on JitPack only (added to settings.gradle.kts). Used by the
+# streaming site extractor. Pin to a specific tag because the JitPack resolution
+# is `(tag)-SNAPSHOT` and unversioned refs would break the build.
+newpipe-extractor = { group = "com.github.TeamNewPipe", name = "NewPipeExtractor", version.ref = "newpipeExtractor" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

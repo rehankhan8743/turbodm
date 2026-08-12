@@ -36,5 +36,7 @@ class DownloadsListViewModel @Inject constructor(
     fun pause(d: Download) { controller.pause(d.id) }
     fun resume(d: Download) { controller.resume(d.id) }
     fun cancel(d: Download) { controller.cancel(d.id) }
-    fun delete(d: Download) = viewModelScope.launch { repo.delete(d.id) }
+    // Route through the controller so the on-disk file is removed along with
+    // the DB row. Bare repo.delete() would leave hundreds of MB orphaned.
+    fun delete(d: Download) = viewModelScope.launch { controller.delete(d.id) }
 }

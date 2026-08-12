@@ -23,4 +23,7 @@ class SettingsViewModel @Inject constructor(
     fun setSegments(v: Int) = viewModelScope.launch { repo.setDefaultSegments(v) }
     fun setUserAgent(v: String) = viewModelScope.launch { repo.setUserAgent(v) }
     fun setDownloadDir(v: String) = viewModelScope.launch { repo.setDownloadDir(v) }
+    fun setStreamingEnabled(v: Boolean) = viewModelScope.launch { repo.setStreamingEnabled(v) }
+    fun setMagnetEnabled(v: Boolean) = viewModelScope.launch { repo.setMagnetEnabled(v) }
+    fun setRulesEngineEnabled(v: Boolean) = viewModelScope.launch { repo.setRulesEngineEnabled(v) }
 }

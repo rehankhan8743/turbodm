@@ -24,7 +24,22 @@ data class Download(
     val cookies: String? = null,
     val expectedSha256: String? = null,
     val computedSha256: String? = null,
-    val pauseReason: PauseReason = PauseReason.NONE
+    val pauseReason: PauseReason = PauseReason.NONE,
+    /**
+     * When true and the URL is a streaming site (YouTube, SoundCloud, TikTok…),
+     * pick the best *audio* stream instead of video. Falls back to video if
+     * no audio stream is found.
+     */
+    val preferAudioOnly: Boolean = false,
+    /**
+     * Epoch ms when this download should auto-start. `0` means "no schedule —
+     * start as soon as a slot is free" (current behavior).
+     *
+     * Set by the Add-download screen when the user picks a future time; the
+     * SchedulerWorker re-queues the row once the wall clock passes it AND any
+     * network constraint is satisfied.
+     */
+    val scheduledForEpochMs: Long = 0L
 ) {
     val progress: Float
         get() = if (totalBytes <= 0) 0f

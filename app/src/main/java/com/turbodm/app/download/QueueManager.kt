@@ -31,12 +31,20 @@ import javax.inject.Singleton
  *
  * The queue does NOT persist state. If the process dies, the engine reloads
  * QUEUED items from Room on next start.
+ *
+ * v2: promotion now routes through the matching [SchemeHandler.fetch] instead
+ * of calling [DownloadEngine.start] directly. The handler decides what to do —
+ * for `http(s):` it just kicks the engine, for `streaming sites` it resolves
+ * the URL via NewPipeExtractor, re-targets the row, and re-queues so the next
+ * iteration picks it up via [HttpSchemeHandler]. This was the missing wire that
+ * caused streaming URLs to download the page HTML instead of the media.
  */
 @Singleton
 class QueueManager @Inject constructor(
     private val repo: DownloadRepository,
     private val engine: DownloadEngine,
-    private val settings: SettingsRepository
+    private val settings: SettingsRepository,
+    private val schemeRegistry: SchemeRegistry
 ) {
 
     data class State(val permits: Int, val inFlight: Int, val queued: Int) {
@@ -55,12 +63,15 @@ class QueueManager @Inject constructor(
         if (watcherJob?.isActive == true) return
         watcherJob = scope.launch {
             combine(
-                repo.observeByStatuses(listOf(DownloadStatus.QUEUED)),
-                repo.observeByStatuses(listOf(DownloadStatus.DOWNLOADING, DownloadStatus.ANALYZING)),
+                repo.observeByStatuses(listOf(DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING)),
                 settings.flow
-            ) { queued, active, snap ->
-                Triple(queued, active, snap.maxParallel)
-            }.collect { (queued, active, permits) ->
+            ) { active, snap -> active to snap.maxParallel }
+            .collect { (rows, permits) ->
+                // Torrent states (ANALYZING etc.) run through TorrentEngine and
+                // must NOT consume HTTP download permits — otherwise a stuck
+                // torrent would starve the whole queue.
+                val queued = rows.filter { it.status == DownloadStatus.QUEUED }
+                val active = rows.filter { it.status == DownloadStatus.DOWNLOADING }
                 _state.value = State(permits, active.size, queued.size)
                 promote(queued, active.size, permits)
             }
@@ -75,8 +86,29 @@ class QueueManager @Inject constructor(
             val slots = (permits - inFlight).coerceAtLeast(0)
             if (slots <= 0) return@withLock
             ordered.take(slots).forEach { d ->
-                engine.start(d.id)
+                dispatch(d)
             }
+        }
+    }
+
+    /**
+     * Routes a queued row through its matching [SchemeHandler.fetch]. For most
+     * schemes (http, https, ftp, content, file) this just calls
+     * [DownloadEngine.start]. For streaming sites the handler resolves the URL
+     * to its direct-media form, updates the row, and re-queues it — the next
+     * queue iteration then drives the resolved URL through the HTTP handler.
+     *
+     * If no handler is registered for the URL (defensive — shouldn't happen
+     * because `controller.addAndStart` rejects unknown schemes at creation
+     * time), fall back to the engine directly. Better than leaving the row
+     * stuck in QUEUED forever.
+     */
+    private fun dispatch(d: Download) {
+        val handler = schemeRegistry.handlerFor(d.url)
+        if (handler == null) {
+            engine.start(d.id)
+        } else {
+            scope.launch { handler.fetch(d) }
         }
     }
 }

@@ -17,6 +17,13 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // JitPack hosts NewPipeExtractor (org.schabi.newpipe:extractor is not on
+        // Maven Central). Only the TeamNewPipe artifacts come from here.
+        maven(url = "https://jitpack.io") {
+            content {
+                includeGroup("com.github.TeamNewPipe")
+            }
+        }
     }
 }
 

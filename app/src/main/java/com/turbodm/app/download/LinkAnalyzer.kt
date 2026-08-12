@@ -2,6 +2,7 @@ package com.turbodm.app.download
 
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.net.URLDecoder
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -51,11 +52,21 @@ class LinkAnalyzer @Inject constructor(
     private fun guessName(url: String, disposition: String?, default: String?): String {
         if (!disposition.isNullOrBlank()) {
             val m = Regex("""filename\*?=(?:UTF-8''|")?([^";]+)""").find(disposition)
-            if (m != null) return m.groupValues[1].trim()
+            if (m != null) {
+                // Percentages in Content-Disposition filenames are URL-encoded;
+                // decode them so "video%20clip.mp4" saves as "video clip.mp4".
+                val decoded = runCatching { URLDecoder.decode(m.groupValues[1].trim(), Charsets.UTF_8) }
+                    .getOrElse { m.groupValues[1].trim() }
+                return sanitize(decoded)
+            }
         }
         if (!default.isNullOrBlank()) return sanitize(default)
         val fromUrl = url.substringBefore('?').substringAfterLast('/')
-        return sanitize(if (fromUrl.isBlank()) "download.bin" else fromUrl)
+        // Decode %-encoded URL path so "%20" in a direct link becomes a space
+        // in the saved filename rather than staying encoded.
+        val decoded = runCatching { URLDecoder.decode(fromUrl, Charsets.UTF_8) }
+            .getOrElse { fromUrl }
+        return sanitize(if (decoded.isBlank()) "download.bin" else decoded)
     }
 
     private fun sanitize(name: String): String =

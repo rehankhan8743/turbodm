@@ -70,6 +70,10 @@ class DownloadEngine @Inject constructor(
     private val jobs = ConcurrentHashMap<Long, Job>()
     private val chunkBytes = ConcurrentHashMap<Long, ConcurrentHashMap<Int, Long>>()
     private val rafLocks = ConcurrentHashMap<Long, Mutex>()
+    // Bandwidth throttle. Settings.speedLimitBps (bytes/sec). 0 = unlimited.
+    // Implemented as a simple token bucket per download; refilled by the
+    // SpeedTracker so multiple downloads share the cap fairly.
+    private val throttleTokens = ConcurrentHashMap<Long, Long>()
 
     private val _running = MutableStateFlow<Set<Long>>(emptySet())
     private val _events = MutableSharedFlow<ProgressEvent>(extraBufferCapacity = 64)
@@ -92,6 +96,7 @@ class DownloadEngine @Inject constructor(
         _running.value = _running.value - id
         chunkBytes.remove(id)
         rafLocks.remove(id)
+        throttleTokens.remove(id)
         speedTracker.reset(id)
         scope.launch {
             repo.setStatus(id, DownloadStatus.CANCELLED)
@@ -106,6 +111,8 @@ class DownloadEngine @Inject constructor(
     private suspend fun run(id: Long) {
         val d = repo.get(id) ?: return
         val settingsSnap = settings.flow.first()
+        // Seed the token bucket so the first burst doesn't run unthrottled.
+        if (settingsSnap.speedLimitBps > 0) throttleTokens[id] = settingsSnap.speedLimitBps
         val target = File(d.targetPath)
         target.parentFile?.mkdirs()
         val tmp = File(d.targetPath + ".part")
@@ -122,7 +129,7 @@ class DownloadEngine @Inject constructor(
             coroutineScope {
                 specs.map { spec ->
                     async(Dispatchers.IO) {
-                        runChunk(id, d, spec, settingsSnap.userAgent, tmp, perChunk)
+                        runChunk(id, d, spec, settingsSnap.userAgent, tmp, perChunk, settingsSnap.speedLimitBps)
                     }
                 }.awaitAll()
             }
@@ -147,6 +154,16 @@ class DownloadEngine @Inject constructor(
                     repo.setError(id, "Rename failed", DownloadStatus.FAILED)
                     return
                 }
+            }
+
+            // If the size was unknown (streaming, chunked transfer), the actual
+            // totalBytes is only known now that the body is fully written.
+            // markCompleted() copies totalBytes into downloadedBytes, so leaving
+            // a sentinel -1 here would clobber the real byte count — the row
+            // would render as "−1 B/-1 B" even though we have the file on disk.
+            val finalSize = target.length()
+            if (d.totalBytes <= 0 && finalSize > 0) {
+                repo.setTotalBytes(id, finalSize)
             }
 
             // Always compute the hash so the user can see it on completed rows.
@@ -175,6 +192,7 @@ class DownloadEngine @Inject constructor(
             _running.value = _running.value - id
             chunkBytes.remove(id)
             rafLocks.remove(id)
+            throttleTokens.remove(id)
             speedTracker.reset(id)
             jobs.remove(id)
         }
@@ -213,16 +231,14 @@ class DownloadEngine @Inject constructor(
         spec: ChunkPlanner.Spec,
         defaultUA: String,
         tmp: File,
-        perChunk: ConcurrentHashMap<Int, Long>
+        perChunk: ConcurrentHashMap<Int, Long>,
+        speedLimitBps: Long
     ) {
         var attempt = 0
+        // ChunkPlanner.reconcile already shifted startByte forward for partial
+        // progress persisted in Room. Do NOT add those bytes again here —
+        // doing so would skip the same range twice and corrupt the file.
         var resumeAt: Long = spec.startByte // grows as bytes for this chunk are written
-
-        // Honor any persisted partial progress for this chunk.
-        val existing = chunkDao.forDownload(downloadId).firstOrNull { it.index == spec.index }
-        if (existing != null && existing.downloadedBytes > 0 && spec.endByte > 0) {
-            resumeAt = spec.startByte + existing.downloadedBytes
-        }
 
         while (true) {
             try {
@@ -266,6 +282,12 @@ class DownloadEngine @Inject constructor(
                         while (true) {
                             val n = src.read(buf)
                             if (n == -1) break
+                            // Bandwidth throttle: pre-sleep until the bucket
+                            // has enough tokens for this read, then write the
+                            // full buffer. No partial writes — simpler and safe.
+                            if (speedLimitBps > 0) {
+                                throttleUntilAllowed(downloadId, n.toLong(), speedLimitBps)
+                            }
                             lock.withLock { raf.write(buf, 0, n) }
                             resumeAt += n
                             perChunk[spec.index] = resumeAt - spec.startByte
@@ -299,6 +321,40 @@ class DownloadEngine @Inject constructor(
                     RetryPolicy.Outcome.Exhausted -> throw t
                 }
             }
+        }
+    }
+
+    /**
+     * Sleeps until the per-download token bucket has at least [bytes] tokens
+     * available. Called immediately before a write to enforce the user's
+     * configured bandwidth cap. Refills once a second at [limitBps] rate.
+     *
+     * [limitBps] is passed in from the run()-time settings snapshot — reading
+     * DataStore on every 64KB write would hammer the disk.
+     */
+    private suspend fun throttleUntilAllowed(downloadId: Long, bytes: Long, limitBps: Long) {
+        if (limitBps <= 0) return
+        val start = System.currentTimeMillis()
+        var lastRefill = start
+        while (true) {
+            val now = System.currentTimeMillis()
+            if (now - lastRefill >= 1000) {
+                val refill = limitBps * ((now - lastRefill) / 1000)
+                lastRefill = now
+                throttleTokens.merge(downloadId, refill) { old, r ->
+                    (old + r).coerceAtMost(limitBps) // never stockpile > 1s worth
+                }
+            }
+            val available = throttleTokens[downloadId] ?: 0L
+            if (available >= bytes) {
+                throttleTokens.merge(downloadId, -bytes) { old, d -> (old + d).coerceAtLeast(0) }
+                return
+            }
+            // Small sleep so we don't busy-spin on IO dispatcher.
+            kotlinx.coroutines.delay(25)
+            // Safety valve: if the job was cancelled while we were waiting,
+            // bail out so coroutine cancellation isn't masked by the sleep.
+            if (!jobs.containsKey(downloadId)) return
         }
     }
 

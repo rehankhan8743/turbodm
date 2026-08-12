@@ -9,6 +9,7 @@ import com.turbodm.app.data.repo.DownloadRepository
 import com.turbodm.app.domain.model.DownloadStatus
 import com.turbodm.app.domain.model.PauseReason
 import com.turbodm.app.settings.SettingsRepository
+import dagger.Lazy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,22 +40,29 @@ class ConnectivityWatcher @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repo: DownloadRepository,
     private val settings: SettingsRepository,
-    private val controller: DownloadController
+    // Lazy so we don't form a construction-time cycle with DownloadController,
+    // which injects and starts this watcher from its init block. The reference
+    // is resolved on first use, by which point DownloadController is fully built.
+    private val controller: Lazy<DownloadController>
 ) {
     private val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var isStarted = false
+    // Minimum ms between full reevaluate sweep — prevents Wi-Fi flap churn from
+    // pause/resume storms when the network bounces at low signal strength.
+    @Volatile private var lastReevaluateAt = 0L
 
     fun start() {
         if (isStarted) return
         isStarted = true
 
-        // React to settings changes (user toggles wifiOnly).
+        // React to settings changes (user toggles wifiOnly) — never debounced,
+        // an explicit user action should take effect immediately.
         scope.launch {
             settings.flow
                 .map { it.wifiOnly }
                 .distinctUntilChanged()
-                .collect { reevaluateActiveDownloads() }
+                .collect { reevaluateActiveDownloads(force = true) }
         }
 
         // React to network changes.
@@ -75,21 +83,30 @@ class ConnectivityWatcher @Inject constructor(
     }
 
     /** Re-decides pause/resume for every active download. */
-    private suspend fun reevaluateActiveDownloads() {
+    private suspend fun reevaluateActiveDownloads(force: Boolean = false) {
+        // Debounce rapid network events: onCapabilitiesChanged fires on every
+        // bandwidth/metered update. Without this a flapping Wi-Fi radio causes
+        // a pause/resume storm that thrashes the engine.
+        if (!force) {
+            val now = System.currentTimeMillis()
+            if (now - lastReevaluateAt < RE_EVALUATE_DEBOUNCE_MS) return
+            lastReevaluateAt = now
+        }
+
         val snap = settings.flow.first()
         val allowed = isNetworkAllowed(snap.wifiOnly)
         if (allowed) {
             // Resume anything we previously paused for network reasons.
             val ids = repo.networkPausedIds()
             for (id in ids) {
-                controller.resume(id, PauseReason.NONE) // reset reason so we don't re-resume on next drop
+                controller.get().resume(id, PauseReason.NONE) // reset reason so we don't re-resume on next drop
             }
         } else {
             // Pause anything currently active (DOWNLOADING / ANALYZING / QUEUED).
             val active = repo.observeActive().first()
                 .filter { it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.ANALYZING || it.status == DownloadStatus.QUEUED }
             for (d in active) {
-                controller.pause(d.id, PauseReason.NETWORK)
+                controller.get().pause(d.id, PauseReason.NETWORK)
             }
         }
     }
@@ -100,5 +117,9 @@ class ConnectivityWatcher @Inject constructor(
         if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return false
         if (wifiOnly && !caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return false
         return true
+    }
+
+    private companion object {
+        const val RE_EVALUATE_DEBOUNCE_MS = 2_000L
     }
 }

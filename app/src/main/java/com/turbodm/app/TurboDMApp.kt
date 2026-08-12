@@ -8,12 +8,14 @@ import android.os.Build
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
+import org.schabi.newpipe.extractor.NewPipe
 import javax.inject.Inject
 
 @HiltAndroidApp
 class TurboDMApp : Application(), Configuration.Provider {
 
     @Inject lateinit var workerFactory: HiltWorkerFactory
+    @Inject lateinit var newPipeDownloader: NewPipeDownloader
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -24,6 +26,12 @@ class TurboDMApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
+        // NewPipeExtractor requires this one-time init before any service lookup.
+        // It registers the built-in services (YouTube, SoundCloud, Bandcamp, etc.)
+        // and sets up a default downloader for fetching pages. We inject the
+        // OkHttp-bridged downloader so it shares the same client as the rest of
+        // the app (auth, interceptors, connection pool).
+        NewPipe.init(newPipeDownloader)
     }
 
     private fun createNotificationChannels() {

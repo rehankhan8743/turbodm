@@ -68,7 +68,7 @@ fun DownloadsListScreen(
                         onCancel = { vm.cancel(d) },
                         onDelete = { vm.delete(d) }
                     )
-                    Divider()
+                    HorizontalDivider()
                 }
             }
         }
@@ -117,14 +117,28 @@ private fun DownloadRow(
                     "${humanBytes(d.downloadedBytes)} / ${humanBytes(d.totalBytes)}$progressText$speedText",
                     style = MaterialTheme.typography.bodySmall
                 )
+                // Show the scheduled start time so the user knows *when* the
+                // row will fire.
+                if (d.status == DownloadStatus.SCHEDULED && d.scheduledForEpochMs > 0) {
+                    Text(
+                        "Starts ${formatTime(d.scheduledForEpochMs)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
-            AssistChip(onClick = {}, label = { Text(d.status.name) })
+            val chipLabel = when {
+                d.status == DownloadStatus.SCHEDULED && d.scheduledForEpochMs > 0 ->
+                    "⏰ ${formatShortTime(d.scheduledForEpochMs)}"
+                else -> d.status.name
+            }
+            AssistChip(onClick = {}, label = { Text(chipLabel) })
             Spacer(Modifier.width(4.dp))
             Box {
                 IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, null) }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     if (d.status.isActive) DropdownMenuItem(text = { Text("Pause") }, onClick = { menuOpen = false; onPause() })
-                    if (d.status == DownloadStatus.PAUSED || d.status == DownloadStatus.QUEUED || d.status == DownloadStatus.FAILED)
+                    if (d.status == DownloadStatus.PAUSED || d.status == DownloadStatus.QUEUED || d.status == DownloadStatus.FAILED || d.status == DownloadStatus.SCHEDULED)
                         DropdownMenuItem(text = { Text("Resume") }, onClick = { menuOpen = false; onResume() })
                     DropdownMenuItem(text = { Text("Cancel") }, onClick = { menuOpen = false; onCancel() })
                     DropdownMenuItem(text = { Text("Delete") }, onClick = { menuOpen = false; onDelete() })
@@ -180,6 +194,33 @@ private fun humanRate(bps: Long): String = when {
     bps < 1024 * 1024 -> "%.0f KB/s".format(bps / 1024.0)
     else -> "%.1f MB/s".format(bps / 1024.0 / 1024.0)
 }
+
+private fun formatTime(epochMs: Long): String {
+    val cal = java.util.Calendar.getInstance().apply { timeInMillis = epochMs }
+    val today = java.util.Calendar.getInstance()
+    val tomorrow = (today.clone() as java.util.Calendar).apply { add(java.util.Calendar.DAY_OF_YEAR, 1) }
+    val day = when {
+        sameDay(cal, today) -> "today"
+        sameDay(cal, tomorrow) -> "tomorrow"
+        else -> java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()).format(cal.time)
+    }
+    return "$day at %02d:%02d".format(
+        cal.get(java.util.Calendar.HOUR_OF_DAY),
+        cal.get(java.util.Calendar.MINUTE)
+    )
+}
+
+private fun formatShortTime(epochMs: Long): String {
+    val cal = java.util.Calendar.getInstance().apply { timeInMillis = epochMs }
+    return "%02d:%02d".format(
+        cal.get(java.util.Calendar.HOUR_OF_DAY),
+        cal.get(java.util.Calendar.MINUTE)
+    )
+}
+
+private fun sameDay(a: java.util.Calendar, b: java.util.Calendar): Boolean =
+    a.get(java.util.Calendar.YEAR) == b.get(java.util.Calendar.YEAR) &&
+    a.get(java.util.Calendar.DAY_OF_YEAR) == b.get(java.util.Calendar.DAY_OF_YEAR)
 
 private val DownloadStatus.isActive: Boolean
     get() = this == DownloadStatus.ANALYZING || this == DownloadStatus.DOWNLOADING

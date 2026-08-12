@@ -44,6 +44,12 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 dependencies {
@@ -82,4 +88,10 @@ dependencies {
     implementation(libs.okhttp.logging)
 
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.commons.net)
+    implementation(libs.newpipe.extractor)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.okhttp.mockwebserver)
 }

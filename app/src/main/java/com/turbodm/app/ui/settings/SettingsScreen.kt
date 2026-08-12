@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +24,7 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } }
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } }
             )
         }
     ) { padding ->
@@ -48,6 +48,15 @@ fun SettingsScreen(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                SwitchRow(
+                    label = "Auto-categorize into videos / music / docs / packages",
+                    checked = s.rulesEngineEnabled,
+                    onCheckedChange = vm::setRulesEngineEnabled
+                )
+                Text(
+                    "On by default. Disable to save everything in the folder above.",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
             SettingSection("HTTP") {
                 OutlinedTextField(
@@ -56,6 +65,26 @@ fun SettingsScreen(
                     label = { Text("User-Agent") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
+                )
+            }
+            SettingSection("Experimental") {
+                SwitchRow(
+                    label = "Streaming site support (YouTube, SoundCloud, …)",
+                    checked = s.streamingEnabled,
+                    onCheckedChange = vm::setStreamingEnabled
+                )
+                Text(
+                    "On by default. Sites change their JS regularly; extractors may stop working.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                SwitchRow(
+                    label = "Magnet links (BitTorrent)",
+                    checked = s.magnetEnabled,
+                    onCheckedChange = vm::setMagnetEnabled
+                )
+                Text(
+                    "On by default. Disabling this rejects magnet URLs at the add-download screen.",
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
             Text(

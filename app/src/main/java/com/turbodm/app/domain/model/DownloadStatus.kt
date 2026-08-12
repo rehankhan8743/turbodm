@@ -5,6 +5,7 @@ package com.turbodm.app.domain.model
  */
 enum class DownloadStatus {
     QUEUED,
+    SCHEDULED,    // Waiting for a specific time or Wi-Fi to start
     ANALYZING,
     DOWNLOADING,
     PAUSED,

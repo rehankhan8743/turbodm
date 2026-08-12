@@ -24,6 +24,9 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
         val SPEED_LIMIT_BPS = longPreferencesKey("speed_limit_bps")
         val DEFAULT_SEGMENTS = intPreferencesKey("default_segments")
         val USER_AGENT = stringPreferencesKey("user_agent")
+        val STREAMING_ENABLED = booleanPreferencesKey("streaming_enabled")
+        val MAGNET_ENABLED = booleanPreferencesKey("magnet_enabled")
+        val RULES_ENGINE_ENABLED = booleanPreferencesKey("rules_engine_enabled")
     }
 
     data class Snapshot(
@@ -32,7 +35,12 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
         val wifiOnly: Boolean = false,
         val speedLimitBps: Long = 0L,
         val defaultSegments: Int = 4,
-        val userAgent: String = DEFAULT_UA
+        val userAgent: String = DEFAULT_UA,
+        val streamingEnabled: Boolean = true,
+        val magnetEnabled: Boolean = true,
+        // Rules engine: auto-categorize downloads into per-type subfolders
+        // (videos/, music/, images/, docs/, packages/, other/) under downloadDir.
+        val rulesEngineEnabled: Boolean = true
     )
 
     val flow: Flow<Snapshot> = context.dataStore.data.map { p ->
@@ -42,7 +50,10 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
             wifiOnly = p[Keys.WIFI_ONLY] ?: false,
             speedLimitBps = p[Keys.SPEED_LIMIT_BPS] ?: 0L,
             defaultSegments = p[Keys.DEFAULT_SEGMENTS] ?: 4,
-            userAgent = p[Keys.USER_AGENT] ?: DEFAULT_UA
+            userAgent = p[Keys.USER_AGENT] ?: DEFAULT_UA,
+            streamingEnabled = p[Keys.STREAMING_ENABLED] ?: true,
+            magnetEnabled = p[Keys.MAGNET_ENABLED] ?: true,
+            rulesEngineEnabled = p[Keys.RULES_ENGINE_ENABLED] ?: true
         )
     }
 
@@ -52,6 +63,9 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
     suspend fun setDefaultSegments(value: Int) = context.dataStore.edit { it[Keys.DEFAULT_SEGMENTS] = value }
     suspend fun setUserAgent(ua: String) = context.dataStore.edit { it[Keys.USER_AGENT] = ua }
     suspend fun setDownloadDir(path: String) = context.dataStore.edit { it[Keys.DOWNLOAD_DIR] = path }
+    suspend fun setStreamingEnabled(on: Boolean) = context.dataStore.edit { it[Keys.STREAMING_ENABLED] = on }
+    suspend fun setMagnetEnabled(on: Boolean) = context.dataStore.edit { it[Keys.MAGNET_ENABLED] = on }
+    suspend fun setRulesEngineEnabled(on: Boolean) = context.dataStore.edit { it[Keys.RULES_ENGINE_ENABLED] = on }
 
     companion object {
         const val DEFAULT_UA = "TurboDM/0.1 (Android)"

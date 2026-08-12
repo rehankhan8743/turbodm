@@ -39,7 +39,8 @@ class HashVerifier @Inject constructor() {
         if (computed.length != expected.length) return false
         var diff = 0
         for (i in computed.indices) {
-            diff = diff or (computed[i].lowercaseChar() xor expected[i].lowercaseChar())
+            // Char.xor isn't a stdlib op; coerce to Int, xor, fold back into diff.
+            diff = diff or (computed[i].lowercaseChar().code xor expected[i].lowercaseChar().code)
         }
         return diff == 0
     }

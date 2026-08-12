@@ -45,6 +45,56 @@ val MIGRATION_2_3: Migration = object : Migration(2, 3) {
 }
 
 /**
+ * v4 → v5:
+ *   - Adds two tables for BitTorrent downloads (magnet links via libtorrent4j):
+ *     `torrents` (parent row: magnet, infoHash, name, totalBytes, downloadedBytes,
+ *     status, errorMessage, saveDir, createdAt, updatedAt, completedAt, pauseReason)
+ *     and `torrent_files` (child rows: torrentId FK CASCADE, index, path, size,
+ *     downloadedBytes, priority, selected).
+ *   - Pure additive migration. No columns are dropped from `downloads`, so all
+ *     v4 rows remain valid. Default values on the new columns mirror those of
+ *     `downloads` so rows created before a `torrent_files` write still parse.
+ */
+val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `torrents` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `magnet` TEXT NOT NULL,
+                `infoHash` TEXT DEFAULT NULL,
+                `name` TEXT NOT NULL,
+                `totalBytes` INTEGER NOT NULL DEFAULT -1,
+                `downloadedBytes` INTEGER NOT NULL DEFAULT 0,
+                `status` TEXT NOT NULL,
+                `errorMessage` TEXT DEFAULT NULL,
+                `saveDir` TEXT NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                `updatedAt` INTEGER NOT NULL,
+                `completedAt` INTEGER DEFAULT NULL,
+                `pauseReason` TEXT NOT NULL DEFAULT 'NONE'
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_torrents_status` ON `torrents` (`status`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_torrents_createdAt` ON `torrents` (`createdAt`)")
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `torrent_files` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `torrentId` INTEGER NOT NULL,
+                `index` INTEGER NOT NULL,
+                `path` TEXT NOT NULL,
+                `size` INTEGER NOT NULL,
+                `downloadedBytes` INTEGER NOT NULL DEFAULT 0,
+                `priority` INTEGER NOT NULL DEFAULT 0,
+                `selected` INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY(`torrentId`) REFERENCES `torrents`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_torrent_files_torrentId` ON `torrent_files` (`torrentId`)")
+    }
+}
+
+/**
  * v3 → v4:
  *   - The v3 `sha256` column was always NULL (added in v1 for future use, never
  *     written). We replace it with two distinct columns: `expectedSha256` (set by
@@ -69,5 +119,33 @@ val MIGRATION_3_4: Migration = object : Migration(3, 4) {
             // Pre-SQLite 3.35 fallback. The column will remain as NULL garbage;
             // not worth rebuilding the whole table for it.
         }
+    }
+}
+
+/**
+ * v5 → v6:
+ *   - Adds `scheduledForEpochMs` column to `downloads` for the Phase-3
+ *     scheduler. Default 0 = no schedule (preserves existing behavior for
+ *     all existing rows).
+ *   - Adds `categoryDir` column to `downloads` so the rules engine can route
+ *     a file into a per-type subfolder (videos/, music/, docs/, …). NULL
+ *     means "no rule matched; use the global download dir".
+ */
+val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `downloads` ADD COLUMN `scheduledForEpochMs` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `downloads` ADD COLUMN `categoryDir` TEXT DEFAULT NULL")
+    }
+}
+
+/**
+ * v6 → v7:
+ *   - Adds `preferAudioOnly` flag for streaming-site downloads. When set,
+ *     StreamingSchemeHandler picks the highest-bitrate audio stream instead of
+ *     the best video.
+ */
+val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `downloads` ADD COLUMN `preferAudioOnly` INTEGER NOT NULL DEFAULT 0")
     }
 }

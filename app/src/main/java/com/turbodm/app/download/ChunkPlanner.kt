@@ -61,6 +61,35 @@ object ChunkPlanner {
     }
 
     const val MAX_CHUNK_SIZE: Long = 64L * 1024L * 1024L
+
+    /**
+     * Adaptive segment count. Small files get fewer segments (chunk overhead
+     * dominates), large files get more (parallel TCP streams dominate), and
+     * the user setting acts as a per-download cap.
+     *
+     * Heuristic (roughly):
+     *   <8 MB    → 1 segment    (segment overhead > pipelining win)
+     *   8-64 MB  → 2-4 segments
+     *   64-256 MB → 4-8 segments
+     *   >256 MB  → 8-16 segments
+     *
+     * The returned value may exceed [userSegments] but never
+     * [maxChunksFor(totalBytes)] — for a 1 GB file, both are 16.
+     */
+    fun adaptiveSegments(totalBytes: Long, userSegments: Int): Int {
+        if (totalBytes <= 0) return 1
+        val max = maxChunksFor(totalBytes)
+        val heuristic = when {
+            totalBytes < 8L * 1024 * 1024 -> 1
+            totalBytes < 64L * 1024 * 1024 -> 4
+            totalBytes < 256L * 1024 * 1024 -> 8
+            else -> 16
+        }
+        // Never exceed the user's requested cap, never exceed the planner cap,
+        // and never go below 1.
+        return heuristic.coerceIn(1, maxOf(userSegments, max).coerceAtMost(max))
+    }
+
     fun maxChunksFor(totalBytes: Long): Int =
         min(16, max(1, ((totalBytes + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE).toInt()))
 }

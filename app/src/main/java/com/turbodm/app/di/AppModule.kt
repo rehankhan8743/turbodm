@@ -7,6 +7,11 @@ import com.turbodm.app.data.local.DownloadDao
 import com.turbodm.app.data.local.MIGRATION_1_2
 import com.turbodm.app.data.local.MIGRATION_2_3
 import com.turbodm.app.data.local.MIGRATION_3_4
+import com.turbodm.app.data.local.MIGRATION_4_5
+import com.turbodm.app.data.local.MIGRATION_5_6
+import com.turbodm.app.data.local.MIGRATION_6_7
+import com.turbodm.app.data.local.TorrentDao
+import com.turbodm.app.data.local.TorrentFileDao
 import com.turbodm.app.data.local.TurboDatabase
 import dagger.Module
 import dagger.Provides
@@ -26,11 +31,13 @@ object AppModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): TurboDatabase =
         Room.databaseBuilder(context, TurboDatabase::class.java, TurboDatabase.NAME)
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
             .build()
 
     @Provides fun provideDownloadDao(db: TurboDatabase): DownloadDao = db.downloadDao()
     @Provides fun provideChunkDao(db: TurboDatabase): ChunkDao = db.chunkDao()
+    @Provides fun provideTorrentDao(db: TurboDatabase): TorrentDao = db.torrentDao()
+    @Provides fun provideTorrentFileDao(db: TurboDatabase): TorrentFileDao = db.torrentFileDao()
 
     @Provides
     @Singleton

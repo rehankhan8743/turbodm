@@ -14,7 +14,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,16 +29,26 @@ class DownloadNotifier @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val nm = context.getSystemService(Context.NOTIFICATION_SERVICE)
         as android.app.NotificationManager
+    // Last time we posted a notification for a given id — throttle to avoid
+    // spamming the shade on fast connections and starving the main thread.
+    private val lastNotifiedAt = ConcurrentHashMap<Long, Long>()
 
     fun observe() {
         scope.launch {
-            engine.events.collectLatest { evt ->
+            engine.events.conflate().collectLatest { evt ->
+                val now = System.currentTimeMillis()
+                val last = lastNotifiedAt[evt.id] ?: 0L
+                if (now - last < MIN_NOTIFY_INTERVAL_MS) return@collectLatest
+                lastNotifiedAt[evt.id] = now
                 val d = repo.get(evt.id) ?: return@collectLatest
                 nm.notify(evt.id.toInt(), buildProgress(d.fileName, evt.downloaded, evt.total, evt.bps, evt.id))
             }
         }
         scope.launch {
             repo.observeActive().collectLatest { active ->
+                val activeIds = active.map { it.id }.toSet()
+                // Drop stale throttle entries so we don't grow the map forever.
+                lastNotifiedAt.keys.retainAll(activeIds)
                 if (active.isEmpty() && engine.running.value.isEmpty()) {
                     nm.cancel(SERVICE_NOTIFICATION_ID)
                 }
@@ -101,5 +113,6 @@ class DownloadNotifier @Inject constructor(
 
     companion object {
         const val SERVICE_NOTIFICATION_ID = 1
+        private const val MIN_NOTIFY_INTERVAL_MS = 750L
     }
 }
